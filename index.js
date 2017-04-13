@@ -6,6 +6,7 @@ const loadJsonFile = require("load-json-file");
 const path = require("path");
 const semver = require("semver");
 const writeJsonFile = require("write-json-file");
+const { exec } = require("child_process");
 const { arrowRight, tick, warning, info } = require("figures");
 
 const log = x => {
@@ -27,42 +28,45 @@ const ifElse = (pred, ifTrue, otherwise) => {
 
 const allP = x => Promise.all(x);
 const table = new Table({
-  head: ["Package", "Current Range", "", "Latest", ""]
+  head: ["Package", "Current Range", "Current", "", "Latest", ""]
 });
 const tableAppend = x => table.push(x);
 const renderTable = () => table.toString();
 
 const findVersion = R.pipe(R.match(/version:\s"(.*)"/), R.nth(1));
 
-const isUpToDate = R.curry((userPackage, range, currentVersion) => ({
+const isUpToDate = R.curry((userPackage, range, current, latest) => ({
   userPackage,
   range,
-  currentVersion,
-  needsUpdate: !noUpdateNeeded(range, currentVersion)
+  latest,
+  current,
+  needsUpdate: !noUpdateNeeded(range, latest)
 }));
 
-function fetchPackageInfo([userPackage, range]) {
+const fetchPackageInfo = R.curry((exactDeps, [userPackage, range]) => {
   const [user, p] = R.split("/", userPackage);
+  const exactVersion = exactDeps[userPackage];
   return fetchCheerioObject(
     `http://package.elm-lang.org/packages/${user}/${p}/latest`
   )
     .then($ => $.html())
     .then(findVersion)
     .then(R.defaultTo("UNKNOWN"))
-    .then(isUpToDate(userPackage, range));
-}
+    .then(isUpToDate(userPackage, range, exactVersion));
+});
 
-function renderEntry({ userPackage, range, currentVersion, needsUpdate }) {
+function renderEntry({ userPackage, range, latest, needsUpdate, current }) {
   return [
     chalk.bold.black(userPackage),
     range,
+    current,
     arrowRight,
-    currentVersion,
+    latest,
     ifElse(needsUpdate, chalk.red(warning), chalk.green(tick))
   ];
 }
 
-function noUpdateNeeded(range, currentVersion) {
+function noUpdateNeeded(range, latest) {
   const [[from, opFStr], [opTStr, to]] = R.pipe(
     R.split(" v "),
     R.map(R.split(" ")),
@@ -70,7 +74,7 @@ function noUpdateNeeded(range, currentVersion) {
   )(range);
   const opF = opFromString(opFStr);
   const opT = opFromString(opTStr);
-  return semver[opF](from, currentVersion) && semver[opT](currentVersion, to);
+  return semver[opF](from, latest) && semver[opT](latest, to);
 }
 
 function opFromString(str) {
@@ -89,12 +93,15 @@ function opFromString(str) {
 }
 
 function checkUpdates() {
-  return loadJsonFile(path.join(process.cwd(), "elm-package.json"))
-    .then(R.prop("dependencies"))
-    .then(R.toPairs)
-    .then(R.map(fetchPackageInfo))
-    .then(allP)
-    .then(R.sortBy(R.prop("needsUpdate")));
+  return loadJsonFile(
+    path.join(process.cwd(), "elm-stuff", "exact-dependencies.json")
+  ).then(exactDeps =>
+    loadJsonFile(path.join(process.cwd(), "elm-package.json"))
+      .then(R.prop("dependencies"))
+      .then(R.toPairs)
+      .then(R.map(fetchPackageInfo(exactDeps)))
+      .then(allP)
+      .then(R.sortBy(R.prop("needsUpdate"))));
 }
 
 const render = R.pipe(
@@ -106,8 +113,8 @@ const render = R.pipe(
 const updateDeps = R.curry((deps, data) => {
   let { dependencies } = data;
   data.dependencies = R.mapObjIndexed((_, name) => {
-    const { currentVersion } = R.find(R.propEq("userPackage", name))(deps);
-    return `${currentVersion} <= v <= ${currentVersion}`;
+    const { latest } = R.find(R.propEq("userPackage", name))(deps);
+    return `${latest} <= v <= ${latest}`;
   })(dependencies);
   return data;
 });
@@ -129,8 +136,23 @@ function hintUpdateConfig() {
   );
 }
 
+function details({ userPackage, current, latest }) {
+  return new Promise((resolve, reject) =>
+    exec(
+      "elm-package diff ${userPackage} ${current} ${latest}",
+      (error, stdout, stderr) => {
+        if (error) {
+          reject(stderr);
+        } else {
+          resolve(stdout);
+        }
+      }
+    ));
+}
+
 module.exports = {
   checkUpdates,
+  details,
   handleError,
   hintUpdateConfig,
   noUpdateNeeded,

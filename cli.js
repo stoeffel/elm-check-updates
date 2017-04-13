@@ -16,14 +16,16 @@ const cli = meow(
 
 	Options
 	  --update-config, -u  Update elm-package.json
+	  --detailed -d  Get detailed information about the new release
 `,
   {
     alias: {
-      u: "update-config"
+      u: "update-config",
+      d: "detailed"
     }
   }
 );
-const { updateConfig } = cli.flags;
+const { updateConfig, detailed } = cli.flags;
 checkUpdates()
   .then(R.when(R.always(updateConfig), updateElmPackage))
   .then(render)
