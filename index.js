@@ -5,14 +5,16 @@ const fetchCheerioObject = require("fetch-cheerio-object");
 const loadJsonFile = require("load-json-file");
 const path = require("path");
 const semver = require("semver");
-const { arrowRight, tick, warning } = require("figures");
+const writeJsonFile = require("write-json-file");
+const { arrowRight, tick, warning, info } = require("figures");
 
 const log = x => {
   console.log(x);
   return x;
 };
-const err = x => {
+const handleError = x => {
   console.error(x);
+  process.exit(-1);
   return x;
 };
 const ifElse = (pred, ifTrue, otherwise) => {
@@ -87,19 +89,51 @@ function opFromString(str) {
 }
 
 function checkUpdates() {
-  loadJsonFile(path.join(process.cwd(), "elm-package.json"))
+  return loadJsonFile(path.join(process.cwd(), "elm-package.json"))
     .then(R.prop("dependencies"))
     .then(R.toPairs)
     .then(R.map(fetchPackageInfo))
     .then(allP)
-    .then(R.sortBy(R.prop("needsUpdate")))
-    .then(R.map(R.pipe(renderEntry, tableAppend)))
-    .then(renderTable)
-    .then(log)
-    .catch(err);
+    .then(R.sortBy(R.prop("needsUpdate")));
+}
+
+const render = R.pipe(
+  R.map(R.pipe(renderEntry, tableAppend)),
+  renderTable,
+  log
+);
+
+const updateDeps = R.curry((deps, data) => {
+  let { dependencies } = data;
+  data.dependencies = R.mapObjIndexed((_, name) => {
+    const { currentVersion } = R.find(R.propEq("userPackage", name))(deps);
+    return `${currentVersion} <= v <= ${currentVersion}`;
+  })(dependencies);
+  return data;
+});
+
+function updateElmPackage(deps) {
+  return loadJsonFile(path.join(process.cwd(), "elm-package.json"))
+    .then(updateDeps(deps))
+    .then(data =>
+      writeJsonFile(path.join(process.cwd(), "elm-package.json"), data, {
+        indent: 4
+      }))
+    .then(() => deps);
+}
+function hintUpdateConfig() {
+  console.log(
+    chalk.cyan(
+      `${info} Run \`elm-check-update -u\` to update \`elm-package.json\`.`
+    )
+  );
 }
 
 module.exports = {
   checkUpdates,
-  noUpdateNeeded
+  handleError,
+  hintUpdateConfig,
+  noUpdateNeeded,
+  render,
+  updateElmPackage
 };

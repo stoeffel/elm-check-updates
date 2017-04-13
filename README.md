@@ -10,3 +10,5 @@ Elm Check Updates
 ## Usage
 
 Run `elm-check-updates` in your projects root.
+
+If you want to update `elm-package.json` with the latest version of each package run `elm-check-updates -u`.
