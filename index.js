@@ -104,11 +104,10 @@ function checkUpdates() {
       .then(R.sortBy(R.prop("needsUpdate"))));
 }
 
-const render = R.pipe(
-  R.map(R.pipe(renderEntry, tableAppend)),
-  renderTable,
-  log
-);
+const render = deps => {
+  R.pipe(R.map(R.pipe(renderEntry, tableAppend)), renderTable, log)(deps);
+  return deps;
+};
 
 const updateDeps = R.curry((deps, data) => {
   let { dependencies } = data;
@@ -137,9 +136,12 @@ function hintUpdateConfig() {
 }
 
 function details({ userPackage, current, latest }) {
+  if (current === latest) {
+    return null;
+  }
   return new Promise((resolve, reject) =>
     exec(
-      "elm-package diff ${userPackage} ${current} ${latest}",
+      `elm-package diff ${userPackage} ${current} ${latest}`,
       (error, stdout, stderr) => {
         if (error) {
           reject(stderr);
@@ -151,10 +153,12 @@ function details({ userPackage, current, latest }) {
 }
 
 module.exports = {
+  allP,
   checkUpdates,
   details,
   handleError,
   hintUpdateConfig,
+  log,
   noUpdateNeeded,
   render,
   updateElmPackage
