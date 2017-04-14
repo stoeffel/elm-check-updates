@@ -35,6 +35,6 @@ checkUpdates()
   .then(R.when(R.always(detailed), R.map(details)))
   .then(R.reject(R.isNil))
   .then(R.when(R.always(detailed), allP))
-  .then(R.map(log))
+  .then(R.when(R.always(detailed), R.map(log)))
   .then(R.when(R.always(!updateConfig), hintUpdateConfig))
   .catch(handleError);
