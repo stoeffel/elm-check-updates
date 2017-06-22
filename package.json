@@ -1,6 +1,6 @@
 {
   "name": "elm-check-updates",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "check if elm packages are up-to-date",
   "main": "index.js",
   "scripts": {
