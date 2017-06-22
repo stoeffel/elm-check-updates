@@ -27,11 +27,6 @@ const ifElse = (pred, ifTrue, otherwise) => {
 };
 
 const allP = x => Promise.all(x);
-const table = new Table({
-  head: ["Package", "Current Range", "Current", "", "Latest", ""]
-});
-const tableAppend = x => table.push(x);
-const renderTable = () => table.toString();
 
 const findVersion = R.pipe(R.match(/version:\s"(.*)"/), R.nth(1));
 
@@ -105,7 +100,17 @@ function checkUpdates() {
 }
 
 const render = deps => {
-  R.pipe(R.map(R.pipe(renderEntry, tableAppend)), renderTable, log)(deps);
+  let table = new Table({
+    head: ["Package", "Current Range", "Current", "", "Latest", ""]
+  });
+  const tableAppend = table =>
+    x => table.push(R.map(R.defaultTo("NOT INSTALLED!"), x));
+  const renderTable = table => () => table.toString();
+  R.pipe(
+    R.map(R.pipe(renderEntry, tableAppend(table))),
+    renderTable(table),
+    log
+  )(deps);
   return deps;
 };
 

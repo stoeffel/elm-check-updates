@@ -18,6 +18,7 @@
   "license": "BSD-3-Clause",
   "dependencies": {
     "chalk": "^1.1.3",
+    "cli-table": "^0.3.1",
     "fetch-cheerio-object": "^1.2.0",
     "figures": "^2.0.0",
     "load-json-file": "^2.0.0",
