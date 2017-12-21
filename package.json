@@ -16,6 +16,12 @@
   ],
   "author": "schtoeffel",
   "license": "BSD-3-Clause",
+  "homepage": "https://github.com/stoeffel/elm-check-updates",
+  "bugs": "https://github.com/stoeffel/elm-check-updates/issues",
+  "repository": {
+    "type": "git",
+    "url": "stoeffel/elm-check-updates"
+  },
   "dependencies": {
     "chalk": "^1.1.3",
     "cli-table": "^0.3.1",
